@@ -18,8 +18,7 @@ There is also a demo function demonstrating the different
 algorithms. It can be invoked directly on the command line.
 For more information take a look into the class SnowballStemmer.
 """
-from __future__ import unicode_literals
-from __future__ import print_function
+from __future__ import unicode_literals, print_function
 
 from nltk import compat
 from nltk.corpus import stopwords
@@ -93,6 +92,7 @@ class SnowballStemmer(StemmerI):
         self.stopwords = self.stemmer.stopwords
 
 
+@compat.python_2_unicode_compatible
 class _LanguageSpecificStemmer(StemmerI):
 
     """
@@ -401,8 +401,6 @@ class DanishStemmer(_ScandinavianStemmer):
 
 
         return word
-
-
 
 
 class DutchStemmer(_StandardStemmer):
@@ -827,7 +825,7 @@ class EnglishStemmer(_StandardStemmer):
                 break
 
         # STEP 1c
-        if word[-1] in "yY" and word[-2] not in self.__vowels and len(word) > 2:
+        if len(word) > 2 and word[-1] in "yY" and word[-2] not in self.__vowels:
             word = "".join((word[:-1], "i"))
             if len(r1) >= 1:
                 r1 = "".join((r1[:-1], "i"))
@@ -3708,7 +3706,7 @@ def demo():
         stemmer = SnowballStemmer(language)
         excerpt = udhr.words(udhr_corpus[language]) [:300]
 
-        stemmed = " ".join([stemmer.stem(word) for word in excerpt])
+        stemmed = " ".join(stemmer.stem(word) for word in excerpt)
         stemmed = re.sub(r"(.{,70})\s", r'\1\n', stemmed+' ').rstrip()
         excerpt = " ".join(excerpt)
         excerpt = re.sub(r"(.{,70})\s", r'\1\n', excerpt+' ').rstrip()

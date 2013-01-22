@@ -497,7 +497,7 @@ def find_file(filename, env_vars=(), searchpath=(),
                 if path.endswith(alternative) and os.path.exists(path):
                     if verbose: print('[Found %s: %s]' % (filename, path))
                     return path
-            except KeyboardInterrupt as SystemExit:
+            except (KeyboardInterrupt, SystemExit):
                 raise
             except:
                 pass
@@ -624,6 +624,7 @@ def import_from_stdlib(module):
 # Wrapper for ElementTree Elements
 ##########################################################################
 
+@compat.python_2_unicode_compatible
 class ElementWrapper(object):
     """
     A wrapper around ElementTree Element objects whose main purpose is
@@ -669,7 +670,7 @@ class ElementWrapper(object):
     ##////////////////////////////////////////////////////////////
 
     def __repr__(self):
-        s = ElementTree.tostring(self._etree)
+        s = ElementTree.tostring(self._etree, encoding='utf8').decode('utf8')
         if len(s) > 60:
             e = s.rfind('<')
             if (len(s)-e) > 30: e = -20
@@ -681,7 +682,7 @@ class ElementWrapper(object):
         :return: the result of applying ``ElementTree.tostring()`` to
         the wrapped Element object.
         """
-        return ElementTree.tostring(self._etree).rstrip()
+        return ElementTree.tostring(self._etree, encoding='utf8').decode('utf8').rstrip()
 
     ##////////////////////////////////////////////////////////////
     #{ Element interface Delegation (pass-through)
@@ -830,3 +831,12 @@ def is_writable(path):
     # Otherwise, we'll assume it's writable.
     # [xx] should we do other checks on other platforms?
     return True
+
+######################################################################
+# NLTK Error reporting
+######################################################################
+
+def raise_unorderable_types(ordering, a, b):
+    raise TypeError("unorderable types: %s() %s %s()" % (type(a).__name__, ordering, type(b).__name__))
+
+

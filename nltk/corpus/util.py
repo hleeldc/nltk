@@ -9,12 +9,15 @@
 #{ Lazy Corpus Loader
 ######################################################################
 
+from __future__ import unicode_literals
 import re
 import gc
 import nltk
+from nltk.compat import python_2_unicode_compatible
 
 TRY_ZIPFILE_FIRST = False
 
+@python_2_unicode_compatible
 class LazyCorpusLoader(object):
     """
     A proxy object which is used to stand in for a corpus object
@@ -88,6 +91,11 @@ class LazyCorpusLoader(object):
         # because all corpora gets loaded during test collection.
         if attr == '__bases__':
             raise AttributeError("LazyCorpusLoader object has no attribute '__bases__'")
+        if attr == '_unload':
+            # If an exception occures during corpus loading then
+            # '_unload' method may be unattached, so __getattr__ can be called;
+            # we shouldn't trigger corpus loading again in this case.
+            raise AttributeError("LazyCorpusLoader object has no attribute '_unload'")
 
         self.__load()
         # This looks circular, but its not, since __load() changes our

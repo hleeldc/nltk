@@ -35,7 +35,7 @@ defines three chart parsers:
   - ``SteppingChartParser`` is a subclass of ``ChartParser`` that can
     be used to step through the parsing process.
 """
-from __future__ import print_function, division
+from __future__ import print_function, division, unicode_literals
 
 import re
 import warnings
@@ -44,6 +44,9 @@ from nltk import compat
 from nltk.tree import Tree
 from nltk.grammar import WeightedGrammar, is_nonterminal, is_terminal
 from nltk.util import OrderedDict
+from nltk.internals import raise_unorderable_types
+from nltk.compat import (total_ordering, python_2_unicode_compatible,
+                         unicode_repr)
 
 from nltk.parse.api import ParserI
 
@@ -52,6 +55,7 @@ from nltk.parse.api import ParserI
 ##  Edges
 ########################################################################
 
+@total_ordering
 class EdgeI(object):
     """
     A hypothesis about the structure of part of a sentence.
@@ -165,7 +169,7 @@ class EdgeI(object):
         """
         raise NotImplementedError()
 
-    def next(self):
+    def nextsym(self):
         """
         Return the element of this edge's right-hand side that
         immediately follows its dot.
@@ -173,9 +177,6 @@ class EdgeI(object):
         :rtype: Nonterminal or terminal or None
         """
         raise NotImplementedError()
-
-    def __next__(self):
-        return self.next()
 
     def is_complete(self):
         """
@@ -196,15 +197,33 @@ class EdgeI(object):
         raise NotImplementedError()
 
     #////////////////////////////////////////////////////////////
-    # Comparisons
+    # Comparisons & hashing
     #////////////////////////////////////////////////////////////
 
-    def __cmp__(self, other):
-        raise NotImplementedError()
+    def __eq__(self, other):
+        return (self.__class__ is other.__class__ and
+                self._comparison_key == other._comparison_key)
 
-    def __hash__(self, other):
-        raise NotImplementedError()
+    def __ne__(self, other):
+        return not self == other
 
+    def __lt__(self, other):
+        if not isinstance(other, EdgeI):
+            raise_unorderable_types("<", self, other)
+        if self.__class__ is other.__class__:
+            return self._comparison_key < other._comparison_key
+        else:
+            return self.__class__.__name__ < other.__class__.__name__
+
+    def __hash__(self):
+        try:
+            return self._hash
+        except AttributeError:
+            self._hash = hash(self._comparison_key)
+            return self._hash
+
+
+@python_2_unicode_compatible
 class TreeEdge(EdgeI):
     """
     An edge that records the fact that a tree is (partially)
@@ -250,10 +269,12 @@ class TreeEdge(EdgeI):
             ``okens[span[0]:span[1]]`` can be spanned by the
             children specified by ``rhs[:dot]``.
         """
-        self._lhs = lhs
-        self._rhs = tuple(rhs)
         self._span = span
+        self._lhs = lhs
+        rhs = tuple(rhs)
+        self._rhs = rhs
         self._dot = dot
+        self._comparison_key = (span, lhs, rhs, dot)
 
     @staticmethod
     def from_production(production, index):
@@ -292,17 +313,9 @@ class TreeEdge(EdgeI):
     def dot(self): return self._dot
     def is_complete(self): return self._dot == len(self._rhs)
     def is_incomplete(self): return self._dot != len(self._rhs)
-    def next(self):
+    def nextsym(self):
         if self._dot >= len(self._rhs): return None
         else: return self._rhs[self._dot]
-
-    # Comparisons & hashing
-    def __cmp__(self, other):
-        if self.__class__ != other.__class__: return -1
-        return cmp((self._span, self.lhs(), self.rhs(), self._dot),
-                   (other._span, other.lhs(), other.rhs(), other._dot))
-    def __hash__(self):
-        return hash((self.lhs(), self.rhs(), self._span, self._dot))
 
     # String representation
     def __str__(self):
@@ -311,13 +324,15 @@ class TreeEdge(EdgeI):
 
         for i in range(len(self._rhs)):
             if i == self._dot: str += ' *'
-            str += ' %r' % (self._rhs[i],)
+            str += ' %s' % unicode_repr(self._rhs[i])
         if len(self._rhs) == self._dot: str += ' *'
         return str
 
     def __repr__(self):
         return '[Edge: %s]' % self
 
+
+@python_2_unicode_compatible
 class LeafEdge(EdgeI):
     """
     An edge that records the fact that a leaf value is consistent with
@@ -341,6 +356,7 @@ class LeafEdge(EdgeI):
         """
         self._leaf = leaf
         self._index = index
+        self._comparison_key = (leaf, index)
 
     # Accessors
     def lhs(self): return self._leaf
@@ -352,18 +368,11 @@ class LeafEdge(EdgeI):
     def dot(self): return 0
     def is_complete(self): return True
     def is_incomplete(self): return False
-    def next(self): return None
-
-    # Comparisons & hashing
-    def __cmp__(self, other):
-        if not isinstance(other, LeafEdge): return -1
-        return cmp((self._index, self._leaf), (other._index, other._leaf))
-    def __hash__(self):
-        return hash((self._index, self._leaf))
+    def nextsym(self): return None
 
     # String representations
     def __str__(self):
-        return '[%s:%s] %r' % (self._index, self._index+1, self._leaf)
+        return '[%s:%s] %s' % (self._index, self._index+1, unicode_repr(self._leaf))
     def __repr__(self):
         return '[Edge: %s]' % (self)
 
@@ -508,7 +517,8 @@ class Chart(object):
         :param length: Only generate edges ``e`` where ``e.length()==length``
         :param lhs: Only generate edges ``e`` where ``e.lhs()==lhs``
         :param rhs: Only generate edges ``e`` where ``e.rhs()==rhs``
-        :param next: Only generate edges ``e`` where ``e.next()==next``
+        :param nextsym: Only generate edges ``e`` where
+            ``e.nextsym()==nextsym``
         :param dot: Only generate edges ``e`` where ``e.dot()==dot``
         :param is_complete: Only generate edges ``e`` where
             ``e.is_complete()==is_complete``
@@ -925,6 +935,8 @@ class ChartRuleI(object):
         """
         raise NotImplementedError()
 
+
+@python_2_unicode_compatible
 class AbstractChartRule(ChartRuleI):
     """
     An abstract base class for chart rules.  ``AbstractChartRule``
@@ -1007,7 +1019,7 @@ class FundamentalRule(AbstractChartRule):
         if not (left_edge.is_incomplete() and
                 right_edge.is_complete() and
                 left_edge.end() == right_edge.start() and
-                next(left_edge) == right_edge.lhs()):
+                left_edge.nextsym() == right_edge.lhs()):
             return
 
         # Construct the new edge.
@@ -1048,7 +1060,7 @@ class SingleEdgeFundamentalRule(FundamentalRule):
     def _apply_complete(self, chart, grammar, right_edge):
         for left_edge in chart.select(end=right_edge.start(),
                                       is_complete=False,
-                                      next=right_edge.lhs()):
+                                      nextsym=right_edge.lhs()):
             new_edge = left_edge.move_dot_forward(right_edge.end())
             if chart.insert_with_backpointer(new_edge, left_edge, right_edge):
                 yield new_edge
@@ -1056,7 +1068,7 @@ class SingleEdgeFundamentalRule(FundamentalRule):
     def _apply_incomplete(self, chart, grammar, left_edge):
         for right_edge in chart.select(start=left_edge.end(),
                                        is_complete=True,
-                                       lhs=next(left_edge)):
+                                       lhs=left_edge.nextsym()):
             new_edge = left_edge.move_dot_forward(right_edge.end())
             if chart.insert_with_backpointer(new_edge, left_edge, right_edge):
                 yield new_edge
@@ -1104,7 +1116,7 @@ class TopDownPredictRule(AbstractChartRule):
     NUM_EDGES = 1
     def apply_iter(self, chart, grammar, edge):
         if edge.is_complete(): return
-        for prod in grammar.productions(lhs=next(edge)):
+        for prod in grammar.productions(lhs=edge.nextsym()):
             new_edge = TreeEdge.from_production(prod, edge.end())
             if chart.insert(new_edge, ()):
                 yield new_edge
@@ -1124,17 +1136,17 @@ class CachedTopDownPredictRule(TopDownPredictRule):
 
     def apply_iter(self, chart, grammar, edge):
         if edge.is_complete(): return
-        next_edge, index = next(edge), edge.end()
-        if not is_nonterminal(next_edge): return
+        nextsym, index = edge.nextsym(), edge.end()
+        if not is_nonterminal(nextsym): return
 
         # If we've already applied this rule to an edge with the same
         # next & end, and the chart & grammar have not changed, then
         # just return (no new edges to add).
-        done = self._done.get((next_edge, index), (None,None))
+        done = self._done.get((nextsym, index), (None,None))
         if done[0] is chart and done[1] is grammar: return
 
         # Add all the edges indicated by the top down expand rule.
-        for prod in grammar.productions(lhs=next_edge):
+        for prod in grammar.productions(lhs=nextsym):
             # If the left corner in the predicted production is
             # leaf, it must match with the input.
             if prod.rhs():
@@ -1147,7 +1159,7 @@ class CachedTopDownPredictRule(TopDownPredictRule):
                 yield new_edge
 
         # Record the fact that we've applied this rule.
-        self._done[next_edge, index] = (chart, grammar)
+        self._done[nextsym, index] = (chart, grammar)
 
 #////////////////////////////////////////////////////////////
 # Bottom-Up Prediction
@@ -1211,7 +1223,7 @@ class FilteredSingleEdgeFundamentalRule(SingleEdgeFundamentalRule):
         nexttoken = end < chart.num_leaves() and chart.leaf(end)
         for left_edge in chart.select(end=right_edge.start(),
                                       is_complete=False,
-                                      next=right_edge.lhs()):
+                                      nextsym=right_edge.lhs()):
             if _bottomup_filter(grammar, nexttoken, left_edge.rhs(), left_edge.dot()):
                 new_edge = left_edge.move_dot_forward(right_edge.end())
                 if chart.insert_with_backpointer(new_edge, left_edge, right_edge):
@@ -1220,7 +1232,7 @@ class FilteredSingleEdgeFundamentalRule(SingleEdgeFundamentalRule):
     def _apply_incomplete(self, chart, grammar, left_edge):
         for right_edge in chart.select(start=left_edge.end(),
                                        is_complete=True,
-                                       lhs=next(left_edge)):
+                                       lhs=left_edge.nextsym()):
             end = right_edge.end()
             nexttoken = end < chart.num_leaves() and chart.leaf(end)
             if _bottomup_filter(grammar, nexttoken, left_edge.rhs(), left_edge.dot()):
@@ -1723,7 +1735,7 @@ def demo(choice=None,
     maxlen = max(len(key) for key in times)
     format = '%' + repr(maxlen) + 's parser: %6.3fsec'
     times_items = times.items()
-    times_items.sort(lambda a,b:cmp(a[1], b[1]))
+    times_items.sort(key=lambda a:a[1])
     for (parser, t) in times_items:
         print(format % (parser, t))
 

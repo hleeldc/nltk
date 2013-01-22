@@ -5,12 +5,14 @@
 # URL: <http://www.nltk.org/>
 # For license information, see LICENSE.TXT
 
+from __future__ import unicode_literals
 import re
-import codecs
 from xml.etree import ElementTree
 
 from nltk import compat
 from nltk.tree import Tree
+from nltk.internals import raise_unorderable_types
+from nltk.compat import total_ordering
 
 from .util import *
 from .api import *
@@ -158,6 +160,7 @@ class PropbankCorpusReader(CorpusReader):
 #{ Propbank Instance & related datatypes
 ######################################################################
 
+@compat.python_2_unicode_compatible
 class PropbankInstance(object):
 
     def __init__(self, fileid, sentnum, wordnum, tagger, roleset,
@@ -293,9 +296,10 @@ class PropbankPointer(object):
         can be ``PropbankTreePointer`` or ``PropbankSplitTreePointer`` pointers.
     """
     def __init__(self):
-        if self.__class__ == PropbankPoitner:
+        if self.__class__ == PropbankPointer:
             raise NotImplementedError()
 
+@compat.python_2_unicode_compatible
 class PropbankChainTreePointer(PropbankPointer):
     def __init__(self, pieces):
         self.pieces = pieces
@@ -311,6 +315,8 @@ class PropbankChainTreePointer(PropbankPointer):
         if tree is None: raise ValueError('Parse tree not avaialable')
         return Tree('*CHAIN*', [p.select(tree) for p in self.pieces])
 
+
+@compat.python_2_unicode_compatible
 class PropbankSplitTreePointer(PropbankPointer):
     def __init__(self, pieces):
         self.pieces = pieces
@@ -325,6 +331,9 @@ class PropbankSplitTreePointer(PropbankPointer):
         if tree is None: raise ValueError('Parse tree not avaialable')
         return Tree('*SPLIT*', [p.select(tree) for p in self.pieces])
 
+
+@total_ordering
+@compat.python_2_unicode_compatible
 class PropbankTreePointer(PropbankPointer):
     """
     wordnum:height*wordnum:height*...
@@ -360,16 +369,28 @@ class PropbankTreePointer(PropbankPointer):
     def __repr__(self):
         return 'PropbankTreePointer(%d, %d)' % (self.wordnum, self.height)
 
-    def __cmp__(self, other):
+    def __eq__(self, other):
         while isinstance(other, (PropbankChainTreePointer,
                                  PropbankSplitTreePointer)):
             other = other.pieces[0]
 
         if not isinstance(other, PropbankTreePointer):
-            return cmp(id(self), id(other))
+            return self is other
 
-        return cmp( (self.wordnum, -self.height),
-                    (other.wordnum, -other.height) )
+        return (self.wordnum == other.wordnum and self.height == other.height)
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __lt__(self, other):
+        while isinstance(other, (PropbankChainTreePointer,
+                                 PropbankSplitTreePointer)):
+            other = other.pieces[0]
+
+        if not isinstance(other, PropbankTreePointer):
+            return id(self) < id(other)
+
+        return (self.wordnum, -self.height) < (other.wordnum, -other.height)
 
     def select(self, tree):
         if tree is None: raise ValueError('Parse tree not avaialable')
@@ -410,6 +431,7 @@ class PropbankTreePointer(PropbankPointer):
                     wordnum += 1
                     stack.pop()
 
+@compat.python_2_unicode_compatible
 class PropbankInflection(object):
     #{ Inflection Form
     INFINITIVE = 'i'

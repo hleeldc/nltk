@@ -69,8 +69,8 @@ class RTEFeatureExtractor(object):
         self.hyp_words = set(self.hyp_tokens)
 
         if lemmatize:
-            self.text_words = set([lemmatize(token) for token in self.text_tokens])
-            self.hyp_words = set([lemmatize(token) for token in self.hyp_tokens])
+            self.text_words = set(lemmatize(token) for token in self.text_tokens)
+            self.hyp_words = set(lemmatize(token) for token in self.hyp_tokens)
 
         if self.stop:
             self.text_words = self.text_words - self.stopwords
@@ -88,7 +88,7 @@ class RTEFeatureExtractor(object):
         :param toktype: distinguish Named Entities from ordinary words
         :type toktype: 'ne' or 'word'
         """
-        ne_overlap = set([token for token in self._overlap if ne(token)])
+        ne_overlap = set(token for token in self._overlap if ne(token))
         if toktype == 'ne':
             if debug: print("ne overlap", ne_overlap)
             return ne_overlap
@@ -105,7 +105,7 @@ class RTEFeatureExtractor(object):
         :param toktype: distinguish Named Entities from ordinary words
         :type toktype: 'ne' or 'word'
         """
-        ne_extra = set([token for token in self._hyp_extra if ne(token)])
+        ne_extra = set(token for token in self._hyp_extra if ne(token))
         if toktype == 'ne':
             return ne_extra
         elif toktype == 'word':
@@ -131,8 +131,8 @@ def rte_classifier(trainer, features=rte_features):
     """
     Classify RTEPairs
     """
-    train = [(pair, pair.value) for pair in nltk.corpus.rte.pairs(['rte1_dev.xml', 'rte2_dev.xml', 'rte3_dev.xml'])]
-    test = [(pair, pair.value) for pair in nltk.corpus.rte.pairs(['rte1_test.xml', 'rte2_test.xml', 'rte3_test.xml'])]
+    train = ((pair, pair.value) for pair in nltk.corpus.rte.pairs(['rte1_dev.xml', 'rte2_dev.xml', 'rte3_dev.xml']))
+    test = ((pair, pair.value) for pair in nltk.corpus.rte.pairs(['rte1_test.xml', 'rte2_test.xml', 'rte3_test.xml']))
 
     # Train up a classifier.
     print('Training classifier...')

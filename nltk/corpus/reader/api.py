@@ -9,6 +9,7 @@
 """
 API for corpus readers.
 """
+from __future__ import unicode_literals
 
 import os
 import re
@@ -16,10 +17,10 @@ from collections import defaultdict
 
 from nltk import compat
 from nltk.data import PathPointer, FileSystemPathPointer, ZipFilePathPointer
-from nltk.sourcedstring import SourcedStringStream
 
 from .util import *
 
+@compat.python_2_unicode_compatible
 class CorpusReader(object):
     """
     A base class for "corpus reader" classes, each of which can be
@@ -107,7 +108,7 @@ class CorpusReader(object):
         self._encoding = encoding
         """The default unicode encoding for the fileids that make up
            this corpus.  If ``encoding`` is None, then the file
-           contents are processed using byte strings (str)."""
+           contents are processed using byte strings."""
         self._tag_mapping_function = tag_mapping_function
 
     def __repr__(self):
@@ -177,7 +178,7 @@ class CorpusReader(object):
         else:
             return paths
 
-    def open(self, file, sourced=False):
+    def open(self, file):
         """
         Return an open stream that can be used to read the given file.
         If the file's encoding is not None, then the stream will
@@ -187,8 +188,6 @@ class CorpusReader(object):
         """
         encoding = self.encoding(file)
         stream = self._root.join(file).open(encoding)
-        if sourced:
-            stream = SourcedStringStream(stream, file)
         return stream
 
     def encoding(self, file):

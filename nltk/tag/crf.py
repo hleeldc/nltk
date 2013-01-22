@@ -13,13 +13,13 @@ A user-supplied feature detector function is used to convert each
 token to a featureset.  Each feature/value pair is then encoded as a
 single binary feature for Mallet.
 """
-from __future__ import print_function
+from __future__ import print_function, unicode_literals
 
 import os
 import pickle
 import re
 import subprocess
-import sys
+import codecs
 from tempfile import mkstemp
 import textwrap
 import time
@@ -32,6 +32,7 @@ from nltk.classify import call_mallet
 
 from nltk.tag.api import FeaturesetTaggerI
 
+@compat.python_2_unicode_compatible
 class MalletCRF(FeaturesetTaggerI):
     """
     A conditional random field tagger, which is trained and run by
@@ -566,11 +567,10 @@ class CRFInfo(object):
                        etree.find('modelFile').text,
                        feature_detector)
 
-    def write(self, filename):
-        out = open(filename, 'w')
-        out.write(self.toxml())
-        out.write('\n')
-        out.close()
+    def write(self, filename, encoding='utf8'):
+        with codecs.open(filename, 'w', encoding) as out:
+            out.write(self.toxml())
+            out.write('\n')
 
     class State(object):
         """

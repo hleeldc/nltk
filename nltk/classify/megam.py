@@ -98,7 +98,7 @@ def write_megam_file(train_toks, encoding, stream,
     """
     # Look up the set of labels.
     labels = encoding.labels()
-    labelnum = dict([(label, i) for (i, label) in enumerate(labels)])
+    labelnum = dict((label, i) for (i, label) in enumerate(labels))
 
     if bin_stream == True:
         class BytesWriter:

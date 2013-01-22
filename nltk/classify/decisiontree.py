@@ -10,13 +10,15 @@ A classifier model that decides which label to assign to a token on
 the basis of a tree structure, where branches correspond to conditions
 on feature values, and leaves correspond to label assignments.
 """
-from __future__ import print_function
+from __future__ import print_function, unicode_literals
 
 from collections import defaultdict
 
 from nltk.probability import FreqDist, MLEProbDist, entropy
 from nltk.classify.api import ClassifierI
+from nltk.compat import python_2_unicode_compatible
 
+@python_2_unicode_compatible
 class DecisionTreeClassifier(ClassifierI):
     def __init__(self, label, feature_name=None, decisions=None, default=None):
         """
@@ -163,14 +165,14 @@ class DecisionTreeClassifier(ClassifierI):
 
     @staticmethod
     def leaf(labeled_featuresets):
-        label = FreqDist([label for (featureset,label)
-                          in labeled_featuresets]).max()
+        label = FreqDist(label for (featureset,label)
+                         in labeled_featuresets).max()
         return DecisionTreeClassifier(label)
 
     @staticmethod
     def stump(feature_name, labeled_featuresets):
-        label = FreqDist([label for (featureset,label)
-                          in labeled_featuresets]).max()
+        label = FreqDist(label for (featureset,label)
+                         in labeled_featuresets).max()
 
         # Find the best label for each value.
         freqs = defaultdict(FreqDist) # freq(label|value)
@@ -178,8 +180,8 @@ class DecisionTreeClassifier(ClassifierI):
             feature_value = featureset.get(feature_name)
             freqs[feature_value].inc(label)
 
-        decisions = dict([(val, DecisionTreeClassifier(freqs[val].max()))
-                          for val in freqs])
+        decisions = dict((val, DecisionTreeClassifier(freqs[val].max()))
+                         for val in freqs)
         return DecisionTreeClassifier(label, feature_name, decisions)
 
     def refine(self, labeled_featuresets, entropy_cutoff, depth_cutoff,
@@ -193,8 +195,8 @@ class DecisionTreeClassifier(ClassifierI):
                                 in labeled_featuresets
                                 if featureset.get(self._fname) == fval]
 
-            label_freqs = FreqDist([label for (featureset,label)
-                                    in fval_featuresets])
+            label_freqs = FreqDist(label for (featureset,label)
+                                   in fval_featuresets)
             if entropy(MLEProbDist(label_freqs)) > entropy_cutoff:
                 self._decisions[fval] = DecisionTreeClassifier.train(
                     fval_featuresets, entropy_cutoff, depth_cutoff,
@@ -204,8 +206,8 @@ class DecisionTreeClassifier(ClassifierI):
                                    in labeled_featuresets
                                    if featureset.get(self._fname) not in
                                    self._decisions]
-            label_freqs = FreqDist([label for (featureset,label)
-                                    in default_featuresets])
+            label_freqs = FreqDist(label for (featureset,label)
+                                   in default_featuresets)
             if entropy(MLEProbDist(label_freqs)) > entropy_cutoff:
                 self._default = DecisionTreeClassifier.train(
                     default_featuresets, entropy_cutoff, depth_cutoff,
@@ -228,8 +230,8 @@ class DecisionTreeClassifier(ClassifierI):
 
     @staticmethod
     def binary_stump(feature_name, feature_value, labeled_featuresets):
-        label = FreqDist([label for (featureset,label)
-                          in labeled_featuresets]).max()
+        label = FreqDist(label for (featureset, label)
+                         in labeled_featuresets).max()
 
         # Find the best label for each value.
         pos_fdist = FreqDist()

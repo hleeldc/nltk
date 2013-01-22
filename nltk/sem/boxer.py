@@ -10,6 +10,9 @@
 """
 An interface to Boxer.
 
+This interface relies on the latest version of the development (subversion) version of
+C&C and Boxer.
+
 Usage:
   Set the environment variable CANDCHOME to the bin directory of your CandC installation.
   The models directory should be in the CandC root directory.
@@ -21,7 +24,7 @@ Usage:
         models/
             boxer/
 """
-from __future__ import print_function
+from __future__ import print_function, unicode_literals
 
 import os
 import re
@@ -39,6 +42,8 @@ from nltk.sem.logic import (ExpectedMoreTokensException, ParseException,
 from nltk.sem.drt import (DRS, DrtApplicationExpression, DrtEqualityExpression,
                           DrtNegatedExpression, DrtOrExpression, DrtParser,
                           DrtProposition, DrtTokens, DrtVariableExpression)
+
+from nltk.compat import python_2_unicode_compatible
 
 class Boxer(object):
     """
@@ -232,11 +237,22 @@ class Boxer(object):
                 i += 1
                 line = lines[i]
                 assert line.startswith('sem(%s,' % drs_id)
-
-                i += 4
-                line = lines[i]
                 assert line.endswith(').')
-                drs_input = line[:-2].strip()
+                
+                search_start = len('sem(%s,[' % drs_id)
+                brace_count = 1
+                drs_start = -1
+                for j,c in enumerate(line[search_start:]):
+                    if(c == '['): 
+                        brace_count += 1
+                    if(c == ']'): 
+                        brace_count -= 1
+                        if(brace_count == 0): 
+                            drs_start = search_start + j + 2
+                            break
+                assert drs_start > -1
+                    
+                drs_input = line[drs_start:-2].strip()
                 parsed = self._parse_drs(drs_input, discourse_id, use_disc_id)
                 drs_dict[discourse_id] = self._boxer_drs_interpreter.interpret(parsed)
             i += 1
@@ -288,6 +304,8 @@ class BoxerOutputDrsParser(DrtParser):
             return self.parse_drs()
         elif tok in ['merge', 'smerge']:
             return self._handle_binary_expression(self._make_merge_expression)(None, [])
+        elif tok in ['alfa']:
+            return self._handle_alfa(self._make_merge_expression)(None, [])
 
     def handle_condition(self, tok, indices):
         """
@@ -510,6 +528,16 @@ class BoxerOutputDrsParser(DrtParser):
 
     def _handle_binary_expression(self, make_callback):
         self.assertToken(self.token(), '(')
+        drs1 = self.parse_Expression(None)
+        self.assertToken(self.token(), ',')
+        drs2 = self.parse_Expression(None)
+        self.assertToken(self.token(), ')')
+        return lambda sent_index, word_indices: make_callback(sent_index, word_indices, drs1, drs2)
+
+    def _handle_alfa(self, make_callback):
+        self.assertToken(self.token(), '(')
+        type = self.token()
+        self.assertToken(self.token(), ',')
         drs1 = self.parse_Expression(None)
         self.assertToken(self.token(), ',')
         drs2 = self.parse_Expression(None)
@@ -796,8 +824,10 @@ class AbstractBoxerDrs(object):
         return self
 
     def __hash__(self):
-        return hash(str(self))
+        return hash("%s" % self)
 
+
+@python_2_unicode_compatible
 class BoxerDrs(AbstractBoxerDrs):
     def __init__(self, label, refs, conds, consequent=None):
         AbstractBoxerDrs.__init__(self)
@@ -832,8 +862,8 @@ class BoxerDrs(AbstractBoxerDrs):
 
     def __repr__(self):
         s = 'drs(%s, [%s], [%s])' % (self.label,
-                                        ', '.join(map(str, self.refs)),
-                                        ', '.join(map(str, self.conds)))
+                                    ', '.join("%s" % r for r in self.refs),
+                                    ', '.join("%s" % c for c in self.conds))
         if self.consequent is not None:
             s = 'imp(%s, %s)' % (s, self.consequent)
         return s
@@ -846,6 +876,13 @@ class BoxerDrs(AbstractBoxerDrs):
                reduce(operator.and_, (c1==c2 for c1,c2 in zip(self.conds, other.conds))) and \
                self.consequent == other.consequent
 
+    def __ne__(self, other):
+        return not self == other
+
+    __hash__ = AbstractBoxerDrs.__hash__
+
+
+@python_2_unicode_compatible
 class BoxerNot(AbstractBoxerDrs):
     def __init__(self, drs):
         AbstractBoxerDrs.__init__(self)
@@ -869,6 +906,12 @@ class BoxerNot(AbstractBoxerDrs):
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self.drs == other.drs
 
+    def __ne__(self, other):
+        return not self == other
+
+    __hash__ = AbstractBoxerDrs.__hash__
+
+@python_2_unicode_compatible
 class BoxerIndexed(AbstractBoxerDrs):
     def __init__(self, discourse_id, sent_index, word_indices):
         AbstractBoxerDrs.__init__(self)
@@ -886,8 +929,14 @@ class BoxerIndexed(AbstractBoxerDrs):
                self.word_indices == other.word_indices and \
                reduce(operator.and_, (s==o for s,o in zip(self, other)))
 
+    def __ne__(self, other):
+        return not self == other
+
+    __hash__ = AbstractBoxerDrs.__hash__
+
     def __repr__(self):
-        s = '%s(%s, %s, [%s]' % (self._pred(), self.discourse_id, self.sent_index, ', '.join(map(str, self.word_indices)))
+        s = '%s(%s, %s, [%s]' % (self._pred(), self.discourse_id,
+                                 self.sent_index, ', '.join("%s" % wi for wi in self.word_indices))
         for v in self:
             s += ', %s' % v
         return s + ')'

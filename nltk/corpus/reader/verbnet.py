@@ -4,15 +4,14 @@
 # Author: Edward Loper <edloper@gradient.cis.upenn.edu>
 # URL: <http://www.nltk.org/>
 # For license information, see LICENSE.TXT
+from __future__ import unicode_literals
 
 import re
 import textwrap
 from collections import defaultdict
 
 from nltk import compat
-from .util import *
-from .api import *
-from .xmldocs import *
+from .xmldocs import XMLCorpusReader
 
 class VerbnetCorpusReader(XMLCorpusReader):
 
@@ -385,6 +384,6 @@ class VerbnetCorpusReader(XMLCorpusReader):
         for pred in vnframe.findall('SEMANTICS/PRED'):
             args = [arg.get('value') for arg in pred.findall('ARGS/ARG')]
             pieces.append('%s(%s)' % (pred.get('value'), ', '.join(args)))
-        return '\n'.join(['%s* %s' % (indent, piece) for piece in pieces])
+        return '\n'.join('%s* %s' % (indent, piece) for piece in pieces)
 
 

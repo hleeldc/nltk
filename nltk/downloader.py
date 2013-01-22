@@ -67,7 +67,7 @@ or::
     python -m nltk.downloader [-d DATADIR] [-q] [-f] [-k] PACKAGE_IDS
 """
 #----------------------------------------------------------------------
-from __future__ import print_function, division
+from __future__ import print_function, division, unicode_literals
 
 """
 
@@ -259,8 +259,6 @@ class Package(object):
     def __repr__(self):
         return '<Package %s>' % self.id
 
-    def __lt__(self, other):
-        return False
 
 class Collection(object):
     """
@@ -295,9 +293,6 @@ class Collection(object):
 
     def __repr__(self):
         return '<Collection %s>' % self.id
-
-    def __lt__(self, other):
-        return False
 
 ######################################################################
 # Message Passing Objects
@@ -1951,14 +1946,18 @@ def md5_hexdigest(file):
     ``file`` may either be a filename or an open stream.
     """
     if isinstance(file, compat.string_types):
-        file = open(file, 'rb')
+        with open(file, 'rb') as fp:
+            return _md5_hexdigest(fp)
+    return _md5_hexdigest(file)
 
+def _md5_hexdigest(fp):
     md5_digest = md5()
     while True:
-        block = file.read(1024*16) # 16k blocks
+        block = fp.read(1024*16)  # 16k blocks
         if not block: break
         md5_digest.update(block)
     return md5_digest.hexdigest()
+
 
 # change this to periodically yield progress messages?
 # [xx] get rid of topdir parameter -- we should be checking
@@ -2005,13 +2004,15 @@ def _unzip_iter(filename, root, verbose=True):
     # Extract files.
     for i, filename in enumerate(filelist):
         filepath = os.path.join(root, *filename.split('/'))
-        out = open(filepath, 'wb')
-        try: contents = zf.read(filename)
-        except Exception as e:
-            yield ErrorMessage(filename, e)
-            return
-        out.write(contents)
-        out.close()
+
+        with open(filepath, 'wb') as out:
+            try:
+                contents = zf.read(filename)
+            except Exception as e:
+                yield ErrorMessage(filename, e)
+                return
+            out.write(contents)
+
         if verbose and (i*10/len(filelist) > (i-1)*10/len(filelist)):
             sys.stdout.write('.')
             sys.stdout.flush()
